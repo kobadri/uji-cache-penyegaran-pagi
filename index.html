@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#234b37"><title>Uji Cache Dua Pekan — Penyegaran Pagi</title><style>
+*{box-sizing:border-box}body{font:16px system-ui,sans-serif;background:#eef2ef;color:#183326;margin:0;padding:20px}.card{max-width:680px;margin:20px auto;background:white;padding:22px;border-radius:16px;box-shadow:0 4px 18px #0001}h1{font-size:22px;color:#1e5138}.warn{background:#fff4dc;padding:12px;border-radius:8px;font-size:14px}.buttons{display:grid;gap:10px;margin:18px 0}button{border:0;border-radius:8px;padding:14px;background:#1e5138;color:white;font-weight:700;font-size:15px;cursor:pointer}button.alt{background:#476579}pre{white-space:pre-wrap;background:#f3f5f4;padding:14px;border-radius:8px;min-height:100px;font-size:13px}.status{font-weight:700}small{color:#65756c}
+</style></head><body><main class="card">
+<h1>Uji Cache Offline Dua Pekan</h1>
+<p>Halaman teknis terpisah untuk menguji penyimpanan lokal browser. Tidak terhubung ke data jemaat dan tidak mengubah situs utama.</p>
+<div class="warn"><b>Catatan:</b> Berkas audio/video di sini hanya contoh kecil untuk menguji cache, bukan media asli dan bukan uji pemutaran codec.</div>
+<p>Status jaringan: <span id="network" class="status">—</span></p>
+<div class="buttons">
+<button id="first">1. Simpan simulasi Pekan 5 + 6</button>
+<button id="second">2. Simulasikan maju: Pekan 6 + 7</button>
+<button class="alt" id="inspect">3. Periksa isi cache</button>
+<button class="alt" id="offline">4. Uji akses cache saat offline (petunjuk)</button>
+</div>
+<h3>Hasil</h3><pre id="log">Menunggu tindakan…</pre>
+<small>Cache hanya berada di browser/perangkat yang membuka alamat pengujian ini.</small>
+</main><script>
+const $=id=>document.getElementById(id), log=(s)=>{$("log").textContent=new Date().toLocaleTimeString()+" — "+s+"\n"+$("log").textContent};
+function net(){ $("network").textContent=navigator.onLine?"ONLINE":"OFFLINE";$("network").style.color=navigator.onLine?"green":"#b42318"}
+window.addEventListener("online",net);window.addEventListener("offline",net);net();
+if("serviceWorker"in navigator){addEventListener("load",async()=>{try{await navigator.serviceWorker.register("./sw.js");await navigator.serviceWorker.ready;log("Service worker aktif.");}catch(e){log("Gagal mendaftarkan service worker: "+e.message)}})}
+async function sync(weeks){if(!navigator.onLine){log("Batalkan: browser sedang offline; cache lama tidak diubah.");return}
+const urls=[];for(const w of weeks){urls.push("data/teks/pekan-"+w+".html","data/media/audio-pekan-"+w+".mp3","data/media/video-pekan-"+w+".mp4")}
+const reg=await navigator.serviceWorker.ready;if(!reg.active){log("Service worker belum aktif.");return}
+navigator.serviceWorker.addEventListener("message",function handler(e){if(e.data?.jenis==="SINKRON_PEKAN_SELESAI"){log("Hasil sinkron: "+JSON.stringify(e.data));navigator.serviceWorker.removeEventListener("message",handler);inspect()}});
+reg.active.postMessage({jenis:"SINKRON_PEKAN",pekanAktif:weeks[weeks.length-1],urls:urls.map(x=>new URL(x,document.baseURI).href)});
+log("Permintaan sinkron Pekan "+weeks.join(" dan ")+" dikirim.");
+}
+async function inspect(){const keys=await caches.keys();let out=[];for(const k of keys){const c=await caches.open(k);const req=await c.keys();out.push(k+": "+req.length+" berkas");req.forEach(r=>out.push("  "+new URL(r.url).pathname))} $("log").textContent="Isi Cache Storage:\n"+(out.join("\n")||"(kosong)")+"\n\n"+$("log").textContent}
+$("first").onclick=()=>sync([5,6]);$("second").onclick=()=>sync([6,7]);$("inspect").onclick=inspect;
+$("offline").onclick=()=>log("Buka DevTools (F12) → Network → pilih Offline. Muat ulang halaman, lalu klik Periksa isi cache. Setelah selesai, kembalikan ke No throttling/Online.");
+navigator.serviceWorker?.addEventListener("message",e=>{if(e.data?.jenis==="SINKRON_PEKAN_SELESAI")log("Sinkron selesai: "+JSON.stringify(e.data))});
+</script></body></html>
